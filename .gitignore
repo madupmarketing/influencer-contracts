@@ -1,0 +1,7 @@
+output/
+input/*.xlsx
+__pycache__/
+*.pyc
+.env
+*.json
+unpacked/
