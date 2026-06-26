@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import base64
 import re
 from pathlib import Path
 from datetime import date, datetime
@@ -27,52 +26,9 @@ st.markdown("""
 
 if "history" not in st.session_state:
     st.session_state.history = []
-if "ocr_bank" not in st.session_state:
-    st.session_state.ocr_bank = {}
-if "ocr_biz" not in st.session_state:
-    st.session_state.ocr_biz = {}
 
 
-# ── OCR 헬퍼 ──────────────────────────────────────────────
-def ocr_image(image_bytes: bytes, image_type: str, task: str) -> dict:
-    """이미지를 Claude로 읽어 구조화된 데이터 반환. 이미지는 메모리에서만 처리."""
-    try:
-        import anthropic
-        api_key = st.secrets.get("ANTHROPIC_API_KEY", "") or __import__("os").environ.get("ANTHROPIC_API_KEY", "")
-        if not api_key:
-            return {"error": "ANTHROPIC_API_KEY가 설정되지 않았습니다."}
-
-        client = anthropic.Anthropic(api_key=api_key)
-        b64 = base64.standard_b64encode(image_bytes).decode()
-
-        if task == "bank":
-            prompt = "이 통장 사본 이미지에서 은행명, 계좌번호, 예금주를 추출해줘. JSON으로만 응답: {\"은행명\": \"\", \"계좌번호\": \"\", \"예금주\": \"\"}"
-        else:
-            prompt = "이 사업자등록증 이미지에서 상호(회사명), 사업자등록번호, 사업장주소, 대표자성명을 추출해줘. JSON으로만 응답: {\"회사명\": \"\", \"사업자등록번호\": \"\", \"주소\": \"\", \"대표자\": \"\"}"
-
-        media_type_map = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png"}
-        media_type = media_type_map.get(image_type.lower(), "image/jpeg")
-
-        response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=300,
-            messages=[{"role": "user", "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": b64}},
-                {"type": "text", "text": prompt},
-            ]}],
-        )
-        import json
-        text = response.content[0].text.strip()
-        # JSON 추출
-        m = re.search(r"\{.*\}", text, re.DOTALL)
-        return json.loads(m.group(0)) if m else {"error": "파싱 실패"}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-# ── 2차 활용 기간 계산 ─────────────────────────────────────
 def calc_license_end(upload_date: date, period_text: str):
-    """'3개월', '6개월', '1년' 등 텍스트 + 업로드일 → 종료일 계산"""
     if not upload_date or not period_text:
         return None
     m = re.search(r"(\d+)\s*개월", period_text)
@@ -87,7 +43,6 @@ def calc_license_end(upload_date: date, period_text: str):
     return None
 
 
-# ════════════════════════════════════════════════════════════
 st.markdown("## :material/contract: 인플루언서 계약서 자동화")
 st.caption("매드업 표준 계약서 기반 · 인플루언서 정보 입력 → 계약서 초안 자동 생성")
 st.divider()
@@ -95,7 +50,6 @@ st.divider()
 tab_new, tab_list = st.tabs([":material/add: 새 계약서 작성", ":material/folder_open: 생성 내역"])
 
 with tab_new:
-    # ── 기본 정보 + 채널 ──────────────────────────────────
     st.markdown('<p class="section-title">인플루언서 정보</p>', unsafe_allow_html=True)
     col_a, col_b = st.columns(2, gap="large")
 
@@ -130,7 +84,6 @@ with tab_new:
 
             st.markdown("**2차 활용 라이선스**")
             이차활용기간_raw = st.text_input("2차 활용 기간", placeholder="업로드일로부터 6개월")
-            # 자동 계산 미리보기
             if 이차활용기간_raw and 업로드일:
                 end = calc_license_end(업로드일, 이차활용기간_raw)
                 if end:
@@ -151,64 +104,36 @@ with tab_new:
             with c4:
                 지급예정일 = st.date_input("지급 예정일", value=None)
 
-            # 통장 사본 OCR
-            bank_file = st.file_uploader("통장 사본 업로드 (자동 입력)", type=["jpg", "jpeg", "png"], key="bank_upload")
-            if bank_file:
-                with st.spinner("통장 정보 읽는 중..."):
-                    ext = bank_file.name.rsplit(".", 1)[-1]
-                    result = ocr_image(bank_file.read(), ext, "bank")
-                    bank_file = None  # 즉시 참조 해제
-                if "error" not in result:
-                    st.session_state.ocr_bank = result
-                    st.success("자동 입력 완료 — 아래 내용을 확인해주세요")
-                else:
-                    st.error(result["error"])
-
             c5, c6, c7 = st.columns(3)
             with c5:
-                은행명 = st.text_input("은행명", value=st.session_state.ocr_bank.get("은행명", ""), placeholder="카카오뱅크")
+                은행명 = st.text_input("은행명", placeholder="카카오뱅크")
             with c6:
-                계좌번호 = st.text_input("계좌번호", value=st.session_state.ocr_bank.get("계좌번호", ""), placeholder="3333-01-1234567")
+                계좌번호 = st.text_input("계좌번호", placeholder="3333-01-1234567")
             with c7:
-                예금주 = st.text_input("예금주", value=st.session_state.ocr_bank.get("예금주", ""), placeholder="홍길동")
+                예금주 = st.text_input("예금주", placeholder="홍길동")
 
             계약일 = st.date_input("계약 서명일", value=date.today())
 
-    # ── 수임인 상세 정보 ──────────────────────────────────
     st.markdown("")
     with st.expander("수임인 상세 정보 입력", expanded=False):
         if 계약자유형 == "개인":
             st.caption("개인 계약자 정보")
             ci1, ci2 = st.columns(2)
             with ci1:
-                수임인_성명 = st.text_input("성명", placeholder="홍길동", key="p_name")
-                수임인_주소 = st.text_input("주소", placeholder="서울시 강남구 ...", key="p_addr")
+                st.text_input("성명", placeholder="홍길동", key="p_name")
+                st.text_input("주소", placeholder="서울시 강남구 ...", key="p_addr")
             with ci2:
-                수임인_생년월일 = st.text_input("생년월일", placeholder="1990-01-01", key="p_birth")
+                st.text_input("생년월일", placeholder="1990-01-01", key="p_birth")
         else:
-            # 사업자등록증 OCR
-            biz_file = st.file_uploader("사업자등록증 업로드 (자동 입력)", type=["jpg", "jpeg", "png"], key="biz_upload")
-            if biz_file:
-                with st.spinner("사업자 정보 읽는 중..."):
-                    ext = biz_file.name.rsplit(".", 1)[-1]
-                    result = ocr_image(biz_file.read(), ext, "biz")
-                    biz_file = None
-                if "error" not in result:
-                    st.session_state.ocr_biz = result
-                    st.success("자동 입력 완료 — 아래 내용을 확인해주세요")
-                else:
-                    st.error(result["error"])
-
             st.caption("사업자 계약자 정보")
             cb1, cb2 = st.columns(2)
             with cb1:
-                수임인_회사명 = st.text_input("회사명", value=st.session_state.ocr_biz.get("회사명", ""), placeholder="주식회사 OO", key="b_company")
-                수임인_등록번호 = st.text_input("사업자등록번호", value=st.session_state.ocr_biz.get("사업자등록번호", ""), placeholder="000-00-00000", key="b_regno")
+                st.text_input("회사명", placeholder="주식회사 OO", key="b_company")
+                st.text_input("사업자등록번호", placeholder="000-00-00000", key="b_regno")
             with cb2:
-                수임인_주소 = st.text_input("사업장 주소", value=st.session_state.ocr_biz.get("주소", ""), placeholder="서울시 강남구 ...", key="b_addr")
-                수임인_대표자 = st.text_input("대표자명", value=st.session_state.ocr_biz.get("대표자", ""), placeholder="홍길동", key="b_ceo")
+                st.text_input("사업장 주소", placeholder="서울시 강남구 ...", key="b_addr")
+                st.text_input("대표자명", placeholder="홍길동", key="b_ceo")
 
-    # ── 생성 버튼 ─────────────────────────────────────────
     st.markdown("")
     col_btn, _ = st.columns([1, 3])
     with col_btn:
@@ -228,7 +153,6 @@ with tab_new:
         if missing:
             st.error(f"필수 항목을 입력해주세요: {', '.join(missing)}")
         else:
-            # 수임인 상세 정보 수집
             if 계약자유형 == "개인":
                 수임인_상세 = {
                     "수임인_성명": st.session_state.get("p_name", ""),
@@ -280,9 +204,6 @@ with tab_new:
                         "created_at": datetime.now(),
                         "doc_bytes": doc_bytes,
                     })
-                    # OCR 캐시 초기화
-                    st.session_state.ocr_bank = {}
-                    st.session_state.ocr_biz = {}
 
                     st.success(":material/check_circle: 계약서 생성 완료!")
                     st.download_button(
@@ -296,9 +217,6 @@ with tab_new:
                 except Exception as e:
                     st.error(f"오류 발생: {e}")
 
-# ════════════════════════════════════════════════════════════
-# TAB 2: 생성 내역
-# ════════════════════════════════════════════════════════════
 with tab_list:
     st.markdown('<p class="section-title">생성된 계약서 목록</p>', unsafe_allow_html=True)
 
