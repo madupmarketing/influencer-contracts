@@ -20,6 +20,7 @@ PARA = {
     "2차활용범위": "2FC2C33D",
     "채널정보": "1E311B5D",
     "유튜브링크": "7B8D3947",
+    "계약건명": "3C5E7D4B",
     "캠페인명": "2042D2CF",
     "계약일": "6B40A275",
     # 수임인 서명 섹션
@@ -118,7 +119,11 @@ def apply_replacements(xml, d):
     display_name = f"{d['수임인']}({채널명})" if 채널명 else d["수임인"]
     xml = xml.replace("<w:t>[      ]</w:t>", f"<w:t>{display_name}</w:t>", 1)
 
-    # 2. 캠페인명 (빈 셀)
+    # 2. 계약건명 (빈 셀)
+    if d.get("계약건명"):
+        xml = insert_run_to_para(xml, PARA["계약건명"], d["계약건명"])
+
+    # 2b. 캠페인명 (빈 셀)
     if d.get("캠페인명"):
         xml = insert_run_to_para(xml, PARA["캠페인명"], d["캠페인명"])
 
@@ -224,6 +229,48 @@ def apply_replacements(xml, d):
     return xml
 
 
+COMMENT_PARTS = [
+    "word/comments.xml", "word/commentsExtended.xml",
+    "word/commentsIds.xml", "word/commentsExtensible.xml",
+]
+
+
+def strip_comments(contents, names):
+    """문서 내 모든 댓글(코멘트) 제거: 마커·런·파트·관계·콘텐츠타입 정리"""
+    # 1. document.xml 에서 댓글 마커/런 제거
+    doc = contents["word/document.xml"].decode("utf-8")
+    doc = re.sub(r"<w:commentRangeStart[^>]*/>", "", doc)
+    doc = re.sub(r"<w:commentRangeEnd[^>]*/>", "", doc)
+    # commentReference 를 감싼 <w:r> ... </w:r> 통째로 제거
+    doc = re.sub(
+        r"<w:r\b[^>]*>(?:(?!</w:r>).)*?<w:commentReference[^>]*/>(?:(?!</w:r>).)*?</w:r>",
+        "", doc, flags=re.DOTALL,
+    )
+    contents["word/document.xml"] = doc.encode("utf-8")
+
+    # 2. 댓글 관련 파트 파일 삭제
+    for part in COMMENT_PARTS:
+        contents.pop(part, None)
+        if part in names:
+            names.remove(part)
+
+    # 3. document.xml.rels 에서 댓글 관계 제거
+    rels_key = "word/_rels/document.xml.rels"
+    if rels_key in contents:
+        rels = contents[rels_key].decode("utf-8")
+        rels = re.sub(r"<Relationship\b[^>]*comment[^>]*/>", "", rels, flags=re.IGNORECASE)
+        contents[rels_key] = rels.encode("utf-8")
+
+    # 4. [Content_Types].xml 에서 댓글 Override 제거
+    ct_key = "[Content_Types].xml"
+    if ct_key in contents:
+        ct = contents[ct_key].decode("utf-8")
+        ct = re.sub(r"<Override\b[^>]*comment[^>]*/>", "", ct, flags=re.IGNORECASE)
+        contents[ct_key] = ct.encode("utf-8")
+
+    return contents, names
+
+
 def fill_contract_bytes(data, template_path=None):
     """계약서를 메모리에서 생성해 bytes 반환 (디스크 불필요)"""
     import io
@@ -236,6 +283,9 @@ def fill_contract_bytes(data, template_path=None):
     xml = contents["word/document.xml"].decode("utf-8")
     xml = apply_replacements(xml, data)
     contents["word/document.xml"] = xml.encode("utf-8")
+
+    # 템플릿에 달린 댓글 전부 제거
+    contents, names = strip_comments(contents, names)
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:

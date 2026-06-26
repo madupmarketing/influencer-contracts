@@ -73,6 +73,7 @@ with tab_new:
                 수임인 = st.text_input("사업자명 *", placeholder="주식회사 OO")
             이메일 = st.text_input("이메일 (발송용)", placeholder="influencer@gmail.com")
             브랜드명 = st.text_input("브랜드명", placeholder="나이키")
+            계약건명 = st.text_input("계약건명", placeholder="2026 여름 인플루언서 광고 계약")
             캠페인명 = st.text_input("캠페인명 *", placeholder="2026 여름 뷰티 캠페인")
             주제 = st.text_input("콘텐츠 주제", placeholder="여름 스킨케어 솔직 리뷰")
 
@@ -205,6 +206,7 @@ with tab_new:
                 "계약자유형": 계약자유형,
                 "이메일": 이메일,
                 "브랜드명": 브랜드명,
+                "계약건명": 계약건명,
                 "캠페인명": 캠페인명,
                 "주제": 주제,
                 "채널명": 채널명,
