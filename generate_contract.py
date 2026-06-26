@@ -22,6 +22,11 @@ PARA = {
     "유튜브링크": "7B8D3947",
     "캠페인명": "2042D2CF",
     "계약일": "6F8B9D0D",
+    # 수임인 서명 섹션
+    "수임인_회사명": "060A83A8",
+    "수임인_등록번호": "55C42044",
+    "수임인_주소": "64569D1A",
+    "수임인_대표자": "4AB07BD6",
 }
 
 
@@ -195,6 +200,26 @@ def apply_replacements(xml, d):
             xml, PARA["계약일"],
             f"{y}년  {m}월  {day}일"
         )
+
+    # 15. 수임인 서명 섹션 (계약서 하단)
+    is_individual = d.get("계약자유형", "개인") == "개인"
+    if is_individual:
+        name = d.get("수임인_성명") or d.get("수임인", "")
+        xml = replace_para_text(xml, PARA["수임인_회사명"], f"성    명 : {name}")
+        if d.get("수임인_생년월일"):
+            xml = replace_para_text(xml, PARA["수임인_등록번호"], f"생년월일 : {d['수임인_생년월일']}")
+        if d.get("수임인_주소"):
+            xml = replace_para_text(xml, PARA["수임인_주소"], f"주    소 : {d['수임인_주소']}")
+        xml = replace_para_text(xml, PARA["수임인_대표자"], f"서    명 : {name}  (인)")
+    else:
+        company = d.get("수임인_회사명") or d.get("수임인", "")
+        xml = replace_para_text(xml, PARA["수임인_회사명"], f"회 사 명 : {company}")
+        if d.get("수임인_등록번호"):
+            xml = replace_para_text(xml, PARA["수임인_등록번호"], f"등록번호 : {d['수임인_등록번호']}")
+        if d.get("수임인_주소"):
+            xml = replace_para_text(xml, PARA["수임인_주소"], f"주    소 : {d['수임인_주소']}")
+        if d.get("수임인_대표자"):
+            xml = replace_para_text(xml, PARA["수임인_대표자"], f"대 표 자 : {d['수임인_대표자']}  (인)")
 
     return xml
 
