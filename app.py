@@ -58,6 +58,7 @@ with tab_new:
             else:
                 수임인 = st.text_input("사업자명 *", placeholder="주식회사 OO")
             이메일 = st.text_input("이메일 (발송용)", placeholder="influencer@gmail.com")
+            브랜드명 = st.text_input("브랜드명", placeholder="나이키")
             캠페인명 = st.text_input("캠페인명 *", placeholder="2026 여름 뷰티 캠페인")
             주제 = st.text_input("콘텐츠 주제", placeholder="여름 스킨케어 솔직 리뷰")
 
@@ -189,6 +190,7 @@ with tab_new:
                 "수임인": 수임인,
                 "계약자유형": 계약자유형,
                 "이메일": 이메일,
+                "브랜드명": 브랜드명,
                 "캠페인명": 캠페인명,
                 "주제": 주제,
                 "채널명": 채널명,
@@ -213,7 +215,11 @@ with tab_new:
                 try:
                     from generate_contract import fill_contract_bytes
                     doc_bytes = fill_contract_bytes(data, template_path=TEMPLATE)
-                    filename = f"{수임인.replace(' ', '_')}_계약서_{datetime.now().strftime('%Y%m%d')}.docx"
+                    # 파일명: 이름(채널명)_브랜드명_인플루언서_광고_표준계약서_계약일
+                    수임인_표기 = f"{수임인}({채널명})" if 채널명 else 수임인
+                    브랜드_표기 = f"_{브랜드명}" if 브랜드명 else ""
+                    계약일_str = 계약일.strftime("%Y%m%d") if 계약일 else datetime.now().strftime("%Y%m%d")
+                    filename = f"{수임인_표기}{브랜드_표기}_인플루언서_광고_표준계약서_{계약일_str}.docx".replace(" ", "_")
 
                     st.session_state.history.insert(0, {
                         "name": 수임인,

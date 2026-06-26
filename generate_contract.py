@@ -228,19 +228,24 @@ def fill_contract_bytes(data, template_path=None):
     """계약서를 메모리에서 생성해 bytes 반환 (디스크 불필요)"""
     import io
     tpl = Path(template_path) if template_path else TEMPLATE
-    with zipfile.ZipFile(tpl, "r") as z:
-        infos = z.infolist()
-        all_files = {info.filename: (z.read(info.filename), info.compress_type) for info in infos}
 
-    xml = all_files["word/document.xml"][0].decode("utf-8")
+    with zipfile.ZipFile(tpl, "r") as zin:
+        names = zin.namelist()
+        contents = {name: zin.read(name) for name in names}
+
+    xml = contents["word/document.xml"].decode("utf-8")
     xml = apply_replacements(xml, data)
-    all_files["word/document.xml"] = (xml.encode("utf-8"), zipfile.ZIP_DEFLATED)
+    contents["word/document.xml"] = xml.encode("utf-8")
 
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w") as zout:
-        for info in infos:  # 원본 순서 + 원본 압축 타입 유지
-            content, compress_type = all_files[info.filename]
-            zout.writestr(info, content, compress_type=compress_type)
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+        # [Content_Types].xml 반드시 첫 번째
+        priority = ["[Content_Types].xml", "_rels/.rels"]
+        ordered = [n for n in priority if n in contents]
+        ordered += [n for n in names if n not in priority]
+        for name in ordered:
+            zout.writestr(name, contents[name])
+
     return buf.getvalue()
 
 
