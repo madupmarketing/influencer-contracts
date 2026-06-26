@@ -43,7 +43,11 @@ with tab_new:
     with col_a:
         with st.container(border=True):
             st.markdown("**기본 정보**")
-            수임인 = st.text_input("수임인 이름 / 상호 *", placeholder="홍길동 또는 주식회사 OO")
+            계약자유형 = st.radio("계약자 유형 *", ["개인", "사업자"], horizontal=True)
+            if 계약자유형 == "개인":
+                수임인 = st.text_input("이름 *", placeholder="홍길동")
+            else:
+                수임인 = st.text_input("사업자명 *", placeholder="주식회사 OO")
             이메일 = st.text_input("이메일 (발송용)", placeholder="influencer@gmail.com")
             캠페인명 = st.text_input("캠페인명 *", placeholder="2026 여름 뷰티 캠페인")
             주제 = st.text_input("콘텐츠 주제", placeholder="여름 스킨케어 솔직 리뷰")
@@ -109,6 +113,7 @@ with tab_new:
         else:
             data = {
                 "수임인": 수임인,
+                "계약자유형": 계약자유형,
                 "이메일": 이메일,
                 "캠페인명": 캠페인명,
                 "주제": 주제,

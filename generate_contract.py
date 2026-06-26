@@ -108,16 +108,22 @@ def insert_run_to_para(xml, para_id, new_text, rPr_hint=""):
 
 
 def apply_replacements(xml, d):
-    # 1. 수임인 이름 (문서 상단 [      ] 6칸)
-    xml = xml.replace("<w:t>[      ]</w:t>", f"<w:t>{d['수임인']}</w:t>", 1)
+    # 1. 수임인: 이름(채널명) 또는 사업자명(채널명)
+    채널명 = d.get("채널명", "")
+    display_name = f"{d['수임인']}({채널명})" if 채널명 else d["수임인"]
+    xml = xml.replace("<w:t>[      ]</w:t>", f"<w:t>{display_name}</w:t>", 1)
 
     # 2. 캠페인명 (빈 셀)
     if d.get("캠페인명"):
         xml = insert_run_to_para(xml, PARA["캠페인명"], d["캠페인명"])
 
-    # 3. 계약금액 (0 → 금액)
+    # 3. 계약금액 + 유형별 주석
     if d.get("계약금액"):
-        xml = xml.replace("<w:t>0</w:t>", f"<w:t>{d['계약금액']}</w:t>", 1)
+        if d.get("계약자유형") == "개인":
+            note = "  *3.3% 원천징수 차감 전 금액"
+        else:
+            note = "  *VAT 별도"
+        xml = xml.replace("<w:t>0</w:t>", f"<w:t>{d['계약금액']}{note}</w:t>", 1)
 
     # 4. 세금계산서 발행일 (paraId=684ABF08)
     if d.get("세금계산서발행일"):
