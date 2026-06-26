@@ -229,17 +229,18 @@ def fill_contract_bytes(data, template_path=None):
     import io
     tpl = Path(template_path) if template_path else TEMPLATE
     with zipfile.ZipFile(tpl, "r") as z:
-        names = z.namelist()
-        all_files = {n: z.read(n) for n in names}
+        infos = z.infolist()
+        all_files = {info.filename: (z.read(info.filename), info.compress_type) for info in infos}
 
-    xml = all_files["word/document.xml"].decode("utf-8")
+    xml = all_files["word/document.xml"][0].decode("utf-8")
     xml = apply_replacements(xml, data)
-    all_files["word/document.xml"] = xml.encode("utf-8")
+    all_files["word/document.xml"] = (xml.encode("utf-8"), zipfile.ZIP_DEFLATED)
 
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
-        for name in names:  # 원본 순서 유지 ([Content_Types].xml 첫 번째)
-            zout.writestr(name, all_files[name])
+    with zipfile.ZipFile(buf, "w") as zout:
+        for info in infos:  # 원본 순서 + 원본 압축 타입 유지
+            content, compress_type = all_files[info.filename]
+            zout.writestr(info, content, compress_type=compress_type)
     return buf.getvalue()
 
 
