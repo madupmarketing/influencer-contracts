@@ -195,19 +195,20 @@ def apply_replacements(xml, d):
 
 def fill_contract_bytes(data, template_path=None):
     """계약서를 메모리에서 생성해 bytes 반환 (디스크 불필요)"""
+    import io
     tpl = Path(template_path) if template_path else TEMPLATE
     with zipfile.ZipFile(tpl, "r") as z:
-        xml = z.read("word/document.xml").decode("utf-8")
-        others = {n: z.read(n) for n in z.namelist() if n != "word/document.xml"}
+        names = z.namelist()
+        all_files = {n: z.read(n) for n in names}
 
+    xml = all_files["word/document.xml"].decode("utf-8")
     xml = apply_replacements(xml, data)
+    all_files["word/document.xml"] = xml.encode("utf-8")
 
-    import io
     buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("word/document.xml", xml.encode("utf-8"))
-        for n, content in others.items():
-            z.writestr(n, content)
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+        for name in names:  # 원본 순서 유지 ([Content_Types].xml 첫 번째)
+            zout.writestr(name, all_files[name])
     return buf.getvalue()
 
 
