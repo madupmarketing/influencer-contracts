@@ -28,19 +28,15 @@ if "history" not in st.session_state:
     st.session_state.history = []
 
 
-def calc_license_end(upload_date: date, period_text: str):
-    if not upload_date or not period_text:
-        return None
-    m = re.search(r"(\d+)\s*개월", period_text)
-    if m:
-        return upload_date + relativedelta(months=int(m.group(1)))
-    m = re.search(r"(\d+)\s*[년year]", period_text)
-    if m:
-        return upload_date + relativedelta(years=int(m.group(1)))
-    m = re.search(r"(\d+)\s*[주week]", period_text)
-    if m:
-        return upload_date + relativedelta(weeks=int(m.group(1)))
-    return None
+def calc_license_end(start: date, amount: int, unit: str) -> date:
+    """시작일 포함 기간 계산 (7/1 + 3일 = 7/3)"""
+    if unit == "일":
+        return start + relativedelta(days=amount - 1)
+    elif unit == "개월":
+        return start + relativedelta(months=amount) - relativedelta(days=1)
+    elif unit == "년":
+        return start + relativedelta(years=amount) - relativedelta(days=1)
+    return start
 
 
 st.markdown("## :material/contract: 인플루언서 계약서 자동화")
@@ -83,16 +79,38 @@ with tab_new:
                 제작수량 = st.number_input("제작 수량 (편) *", min_value=1, value=1, step=1)
 
             st.markdown("**2차 활용 라이선스**")
-            이차활용기간_raw = st.text_input("2차 활용 기간", placeholder="업로드일로부터 6개월")
-            if 이차활용기간_raw and 업로드일:
-                end = calc_license_end(업로드일, 이차활용기간_raw)
-                if end:
-                    st.caption(f"📅 {업로드일.strftime('%Y년 %m월 %d일')} ~ {end.strftime('%Y년 %m월 %d일')}")
-                    이차활용기간 = f"{이차활용기간_raw} ({업로드일.strftime('%Y.%m.%d')} ~ {end.strftime('%Y.%m.%d')})"
+            lc1, lc2 = st.columns(2)
+            with lc1:
+                라이선스_시작일 = st.date_input("시작일", value=None, key="lic_start")
+            with lc2:
+                라이선스_종료일 = st.date_input("종료일", value=None, key="lic_end")
+
+            # 기간 계산기
+            with st.container(border=False):
+                st.caption("기간 계산기 — 시작일 기준으로 종료일 자동 계산")
+                dc1, dc2, dc3 = st.columns([2, 2, 1])
+                with dc1:
+                    기간_숫자 = st.number_input("기간", min_value=1, value=6, step=1, label_visibility="collapsed", key="dur_n")
+                with dc2:
+                    기간_단위 = st.selectbox("단위", ["개월", "일", "년"], label_visibility="collapsed", key="dur_unit")
+                with dc3:
+                    calc_clicked = st.button("계산", key="calc_btn", use_container_width=True)
+
+            if calc_clicked:
+                if 라이선스_시작일:
+                    st.session_state.lic_end = calc_license_end(라이선스_시작일, 기간_숫자, 기간_단위)
+                    st.rerun()
                 else:
-                    이차활용기간 = 이차활용기간_raw
+                    st.warning("시작일을 먼저 선택해주세요.")
+
+            # 최종 기간 텍스트
+            if 라이선스_시작일 and 라이선스_종료일:
+                st.caption(f"📅 {라이선스_시작일.strftime('%Y년 %m월 %d일')} ~ {라이선스_종료일.strftime('%Y년 %m월 %d일')}")
+                이차활용기간 = f"업로드일로부터 {기간_숫자}{기간_단위} ({라이선스_시작일.strftime('%Y.%m.%d')} ~ {라이선스_종료일.strftime('%Y.%m.%d')})"
+            elif 라이선스_시작일:
+                이차활용기간 = f"{라이선스_시작일.strftime('%Y.%m.%d')} ~"
             else:
-                이차활용기간 = 이차활용기간_raw
+                이차활용기간 = ""
 
             이차활용범위 = st.text_area("2차 활용 포함 범위", placeholder="자사 SNS 광고 소재 활용 가능 (유료 광고 집행 포함)", height=68)
 
