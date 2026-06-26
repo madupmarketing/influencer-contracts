@@ -133,7 +133,7 @@ with tab_new:
             계약일 = st.date_input("계약 서명일", value=date.today())
 
     st.markdown("")
-    with st.expander("수임인 상세 정보 입력", expanded=False):
+    with st.expander("수임인 상세 정보 입력", expanded=True):
         if 계약자유형 == "개인":
             st.caption("개인 계약자 정보")
             ci1, ci2 = st.columns(2)
