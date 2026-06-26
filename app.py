@@ -39,8 +39,22 @@ def calc_license_end(start: date, amount: int, unit: str) -> date:
     return start
 
 
+def get_template_version(template_path: Path) -> str:
+    try:
+        import zipfile, re
+        z = zipfile.ZipFile(template_path)
+        xml = z.read("word/footer2.xml").decode("utf-8")
+        texts = re.findall(r'<w:t[^>]*>([^<]+)</w:t>', xml)
+        full = "".join(texts).strip().lstrip("0123456789")
+        return full if full else ""
+    except Exception:
+        return ""
+
+template_ver = get_template_version(TEMPLATE)
+
 st.markdown("## :material/contract: 인플루언서 계약서 자동화")
-st.caption("매드업 표준 계약서 기반 · 인플루언서 정보 입력 → 계약서 초안 자동 생성")
+if template_ver:
+    st.caption(f"기준 서식: `{template_ver}`")
 st.divider()
 
 tab_new, tab_list = st.tabs([":material/add: 새 계약서 작성", ":material/folder_open: 생성 내역"])
